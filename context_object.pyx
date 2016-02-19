@@ -9,37 +9,46 @@ from sage.rings.real_mpfr import RR
 import copy
 import re
 
-#def z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)):
-#    q=field['x'] 
-#    if (Lambda%2):
-#        dimG=(Lambda+1)*(Lambda+3)/4
-#    else:
-#        dimG=((Lambda+2)**2)/4
-#    tempres={}
-#    if (Lambda%2):
-#        dimG=(Lambda+1)*(Lambda+3)/4
-#    else:
-#        dimG=((Lambda+2)**2)/4
-#    result=np.ndarray(dimG**2,dtype='O')
-#    result[:]=field(0)
-#    result=result.reshape(dimG,dimG)
-#    for i in range(0,Lambda//2+2):
-#        for j in range(i+1,Lambda+2-i):
-#            temp=((q('x+1')**j)*(q('x-1')**i)-(q('x-1')**j)*(q('x+1')**i)).padded_list()
-#            tempres.update({repr(i)+","+repr(j):temp})
-#            column_position=(Lambda+2-i)*i+(j-i-1)
-#            if ((i+j)%2):
-#                xypositions=([(Lambda+2-(i+j-x-1)/2)*(i+j-x-1)/2+x for x in range(0,len(temp),2)])
-#                #print xypositions
-#                coeff_with_position=zip(xypositions,temp[0::2])
-#                
-#            else:
-#                xypositions=([(Lambda+2-(i+j-x-1)/2)*(i+j-x-1)/2+x for x in range(1,len(temp),2)])
-#                coeff_with_position=zip(xypositions,temp[1::2])
-#    
-#            [result[column_position].__setitem__(int(x[0]),field(x[1]/2)) for x in coeff_with_position]
-#
-#    return result.transpose()
+def z_zbar_derivative_to_x_y_derivative_Matrix_m(Lambda,field=RealField(400)):
+    """
+    Transforms the array {D_{z} ^i D_{zbar} ^j f(z,zbar)}_{i+j <= Lambda } 
+    with the property f(z,zbar)=f(zbar,z) to
+    { D_x ^n D_y ^m f(x+y,x-y) } _{m+n <= Lambda } 
+
+    The z-zbar derivative array is assumed to align in the manner
+
+    f, D_z f, D_z ^2 f, \cdots, D_z ^{\Lambda} f, D_{zbar} f, D_{zbar} D_z f,
+    \cdots D_{zbar} D_z^{\Lambda-1} f \cdots
+    """
+    q=field['x'] 
+    if (Lambda%2):
+        dimG=(Lambda+1)*(Lambda+3)/4
+    else:
+        dimG=((Lambda+2)**2)/4
+    tempres={}
+    result=np.ndarray(dimG**2,dtype='O')
+    result[:]=field(0)
+    result=result.reshape(dimG,dimG)
+    for i in range(0,Lambda//2+2):
+        for j in range(i+1,Lambda+2-i):
+            temp=((q('x+1')**j)*(q('x-1')**i)+(q('x-1')**j)*(q('x+1')**i)).padded_list()
+            tempres.update({repr(i)+","+repr(j):temp})
+            column_position=(Lambda+2-i)*i+(j-i-1)
+            # z^i bz^j - > x^m y^{2n}
+            # (m+2 n)=(i+j) 
+            if ((i+j)%2):
+                # x^m in (0,2,...)
+                # n=(i+j-m)/2
+                # 0,1,dots,Lambda,0,dots,Lambda-2,
+                # \sum_i=0^{n-1}(Lambda+1 -i) + m 
+                # (Lambda+1- (i+j-x-1)/2)*(i+j-x)
+                xypositions=([(Lambda+1-(i+j-x-1)/2)*(i+j-x-1)/2+x for x in range(0,len(temp),2)])
+                coeff_with_position=zip(xypositions,temp[0::2]) 
+            else:
+                xypositions=([(Lambda+2-(i+j-x-1)/2)*(i+j-x-1)/2+x for x in range(1,len(temp),2)])
+                coeff_with_position=zip(xypositions,temp[1::2]) 
+            [result[column_position].__setitem__(int(x[0]),field(x[1]/2)) for x in coeff_with_position] 
+    return result.transpose()
 
 def z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)):
     """
@@ -683,7 +692,7 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def shift(self,x):
         return prefactor_numerator(self.prefactor.shift(x),self.context.polynomial_vector_shift(self.matrix,x),self.context)
 
-    def __multiply_factored_polynomial(self,factors,C):
+    def multiply_factored_polynomial(self,factors,C):
         """
         multiply C*\Prod _x  (Delta - x)**(factors[x])!
         where x in factors
@@ -714,6 +723,10 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def __rmul__(self,x):
         return self.__mul__(x)
 
+    def __mul__(self,x):
+        new_mat=x*self.matrix
+        return prefactor_numerator(self.prefactor,new_mat,self.context) 
+
     def __add__(self,other):
         if not isinstance(other,prefactor_numerator):
             raise TypeError("must be added to another prefactor_numerator")
@@ -741,6 +754,12 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         other.prefactor.pref_constant)
         new_matrix=remnant_poly1*self.matrix + remnant_poly2*other.matrix
         return prefactor_numerator(new_pref,new_matrix,self.context)
+
+    def __sub__(self,x):
+        if not isinstance(x,prefactor_numerator):
+            raise TypeError("must be added to another prefactor_numerator")
+        return self.__add__(x.__mul__(-1)) 
+
     def __call__(self,x):
         pref=self.prefactor(x)
         body=self.context.polynomial_vector_evaluate(self.matrix,x)

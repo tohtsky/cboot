@@ -446,7 +446,6 @@ def zzbar_anti_symm_to_xy_matrix(Lambda,field=RealField(400)):
             column_position=(Lambda+2-i)*i+(j-i-1)
             if ((i+j)%2):
                 xypositions=([(Lambda+2-(i+j-x-1)/2)*(i+j-x-1)/2+x for x in range(0,len(temp),2)])
-                #print xypositions
                 coeff_with_position=zip(xypositions,temp[0::2])
                 
             else:
