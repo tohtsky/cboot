@@ -149,7 +149,7 @@ cdef class cb_universal_context:
         return self.zzbar_to_xy_marix.dot(np.array(local_res))
         
     def v_to_d_and_anti_symmetrizing_matrix(self,d):
-        return self.make_F_plus_matrix(d)
+        return self.make_F_minus_matrix(d)
 
     def make_F_minus_matrix(self,d):
         """
