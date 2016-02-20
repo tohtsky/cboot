@@ -513,12 +513,11 @@ cdef class scalar_cb_2d_context(scalar_cb_context_generic):
         return g_rational_approx_data_two_d(self,cutoff,ell,Delta_1_2,Delta_3_4,is_correlator_multiple,approximate_poles) 
 
 
-cdef class scalar_cb_4d_context(cb_universal_context):
-    cdef public object epsilon
+cdef class scalar_cb_4d_context(scalar_cb_context_generic):
     cdef public scalar_cb_2d_context k_context
     cdef public object zzbar_anti_symm_to_xy_matrix
     def __init__(self,int Lambda, mp_prec_t Prec, long nMax):
-        cb_universal_context.__init__(Lambda,Prec, nMax,1)
+        scalar_cb_context_generic.__init__(self,Lambda, Prec, nMax,1) 
         self.k_context=scalar_cb_2d_context(Lambda+1,Prec, nMax)
         self.epsilon=self.field(1)
         self.zzbar_anti_symm_to_xy_matrix=zzbar_anti_symm_to_xy_matrix(Lambda,field=self.field)
@@ -529,44 +528,7 @@ cdef class scalar_cb_4d_context(cb_universal_context):
         return self.k_context.chiral_h_times_rho_to_n(n,h,Delta_1_2=Delta_1_2,Delta_3_4=Delta_3_4)
     def k_table(self,h,Delta_1_2,Delta_3_4):
         return self.k_context.k_table(h,Delta_1_2,Delta_3_4)
-       
-    def gBlock(self, ell, Delta,Delta_1_2, Delta_3_4):
-        """
-        gBlock(epsilon, ell, Delta, Delta_1_2, Delta_3_4, self=self): 
-        computes conformal block in the notation of arXiv/1305.1321
-        """
-       # computes conformal block where S = a + b, P=2*a*b
-       # and a = -\Delta_{12}/2, b = \Delta_{34}/2
-       # """
-        epsilon_c=self.field(1)
-        ell_c=self.field(ell)
-        Delta_c=self.field(Delta) 
-        S_c=self.field(-Delta_1_2 + Delta_3_4)/2
-        P_c=self.field(-Delta_1_2)*self.field(Delta_3_4)/2
-        cdef mpfr_t* array 
-        array=gBlock_full(<mpfr_t>(<RealNumber>epsilon_c).value, <mpfr_t>(<RealNumber>ell_c).value, <mpfr_t>(<RealNumber>Delta_c).value, <mpfr_t>(<RealNumber>S_c).value, <mpfr_t>(<RealNumber>P_c).value,<cb_context>self.c_context)
-    
-        if(self.Lambda%2):
-            dimGBlock=((self.Lambda+1)*(self.Lambda+3)/4)
-        else:
-            dimGBlock=((self.Lambda+2)**2)/4
-        res=np.ndarray(dimGBlock,dtype='O')
-        for i in range(0,dimGBlock):
-  #          res[i]=RealNumber.__new__(RealNumber)
-            res[i]=<RealNumber>(<RealField_class>self.field)._new()
-
-            (<RealNumber>res[i])._parent=self.field
-            mpfr_init2(<mpfr_t>(<RealNumber>res[i]).value, self.precision)
-            mpfr_set(<mpfr_t>(<RealNumber>res[i]).value, array[i],  MPFR_RNDN)
-            mpfr_clear(array[i])
-            #(<RealNumber>res[i]).init=1
-    
-        free(array) 
-        return res 
-    
-    def pochhammer(self,x,unsigned long n):
-        return self.k_context.pochhammer(x,n)
-
+      
     def k_rational_approx_data(self,cutoff,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=True,approximate_poles=True):
         return self.k_context.k_rational_approx_data(cutoff,Delta_1_2,Delta_3_4,is_correlator_multiple,approximate_poles=approximate_poles) 
 

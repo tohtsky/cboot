@@ -90,7 +90,6 @@ cdef class cb_universal_context:
         self.field=<RealField_class>RealField(Prec)
         self.Delta_Field=self.field['Delta']
         self.Delta=self.Delta_Field('Delta')
-        #self.__t=(self.field)[['t']]('t')
         self.Lambda=Lambda
         self.maxExpansionOrder=nMax
         self.rho_to_z_matrix=np.ndarray([Lambda+1,Lambda+1],dtype='O')
@@ -766,10 +765,14 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         return pref*body
     def __repr__(self):
         return repr(self.prefactor)+"\n*"+repr(self.matrix)
-    def make_f(self,d):
-        mat=self.context.v_to_d_and_anti_symmetrizing_matrix(d)
-        mat.dot()
 
+    def reshape(self,shape=None):
+        if len(self.matrix.shape)==3 and self.matrix.shape[0]==self.matrix.shape[1]:
+            return self
+        if not shape:
+            shape=(1,1,self.matrix.shape[-1])
+        new_b=self.matrix.reshape(shape)
+        return prefactor_numerator(self.prefactor,new_b)
 
 def find_local_minima(pol,label,field=RR):
     solpol=pol.derivative()
@@ -789,9 +792,10 @@ def functional_to_spectra(ef_path,problem,context,label=None):
     efmread=map(lambda x: find_local_minima(x[0],x[1]),zip(polys,label))
     return efmread
 
+
 class SDP:
     def __init__(self,normalization,objective,pvm,label=None,context=None):
-        self.pvm = [x if (isinstance(x,positive_matrix_with_prefactor)\
+        self.pvm = [x.reshape() if (isinstance(x,positive_matrix_with_prefactor)\
                 or isinstance(x,prefactor_numerator)) \
                 else
                 context.vector_to_positive_matrix_with_prefactor(x) \
