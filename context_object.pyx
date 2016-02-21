@@ -682,6 +682,14 @@ cdef class positive_matrix_with_prefactor:
             map(lambda x :write_polynomial(file_stream,x),orthogonal_polynomial_vector) 
             file_stream.write("</bilinearBasis>\n")
             file_stream.write("</polynomialVectorMatrix>\n")
+    def reshape(self,shape=None):
+        if len(self.matrix.shape)==3 and self.matrix.shape[0]==self.matrix.shape[1]:
+            return self
+        if not shape:
+            shape=(1,1,self.matrix.shape[-1])
+        new_b=self.matrix.reshape(shape)
+        return prefactor_numerator(self.prefactor,new_b)
+
 
 cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def add_poles(self,poles):        
@@ -766,13 +774,6 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def __repr__(self):
         return repr(self.prefactor)+"\n*"+repr(self.matrix)
 
-    def reshape(self,shape=None):
-        if len(self.matrix.shape)==3 and self.matrix.shape[0]==self.matrix.shape[1]:
-            return self
-        if not shape:
-            shape=(1,1,self.matrix.shape[-1])
-        new_b=self.matrix.reshape(shape)
-        return prefactor_numerator(self.prefactor,new_b)
 
 def find_local_minima(pol,label,field=RR):
     solpol=pol.derivative()
