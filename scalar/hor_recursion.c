@@ -660,10 +660,13 @@ mpfr_t* h_asymptotic(mpfr_t epsilon, mpfr_t S, cb_context context){
 	mpfr_mul_ui(temp1,S,2,context.rnd);
 	mpfr_add_si(temp1,temp1,-1,context.rnd);
 	mpfr_sub(temp1,temp1,epsilon,context.rnd);
+    /* temp1 = 2S -1 - epsilon*/
 	mpfr_t* firstFactor=malloc(sizeof(mpfr_t)*(context.lambda+1)); 
 	mpfr_init2(firstFactor[0],context.prec); 
 	mpfr_add_ui(temp2,context.rho,1,context.rnd);
+    /* temp2 = 1 + rho */
 	mpfr_pow(firstFactor[0],temp2,temp1,context.rnd);
+    /* firstFactor[0] = (1+rho)**(-1-epsilon + 2S)*/
 	mpfr_ui_div(temp2,1,temp2,context.rnd);
 	for(unsigned long j=1;j<=context.lambda;j++){
 		mpfr_init2(firstFactor[j],context.prec); 
@@ -690,6 +693,8 @@ mpfr_t* h_asymptotic(mpfr_t epsilon, mpfr_t S, cb_context context){
 		mpfr_mul(secondFactor[j],secondFactor[j],temp2,context.rnd);
 		mpfr_div_ui(secondFactor[j],secondFactor[j],j,context.rnd); 
 	}
+
+    /* Convolve firstFactor and secondFactor */
 	mpfr_t* result_in_rho=malloc(sizeof(mpfr_t)*(context.lambda+1)); 
 	for(unsigned long j=0;j<=context.lambda;j++){
 		mpfr_init2(result_in_rho[j],context.prec);

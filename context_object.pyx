@@ -80,9 +80,9 @@ def z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)):
 
 cdef class cb_universal_context:
     """
-    Class to store bunch of frequently used datum, like
-    precision, cutoff parameter Lambda, {z, z_bar}->(x,y)
-
+    Class to store a bunch of frequently used datum, like
+    precision, cutoff parameter Lambda, and the matrix representing
+    the change variables, e.g. {z, z_bar}->(x,y) and r -> x.
     """
     def __cinit__(self, int Lambda, mp_prec_t Prec, long nMax,*args,**kwargs):
         self.c_context = <cb_context>context_construct(nMax,Prec,Lambda)
@@ -121,6 +121,10 @@ cdef class cb_universal_context:
         self.null_htype=np.array(map(lambda x:RealField(Prec)(0),range(0,((Lambda+2)//2)*(((Lambda+2)//2)+1)/2))) 
 
     def __call__(self,x):
+        """
+        The default action of this class is
+        to convert numbers into real numbers with the default precision.
+        """
         return self.field(x)
 
     def __repr__(self):
@@ -128,10 +132,12 @@ cdef class cb_universal_context:
 
     def __deallocate__(self):
         clear_cb_context(<cb_context>(<cb_universal_context>self).c_context)
+
     def identity_vector(self):
         res = np.concatenate([self.null_ftype,self.null_htype])
         res[0]=self.field(1)
         return res 
+
     def v_to_d(self,d):
         """
         compute the table of derivative of v = (z*z_bar)^d
@@ -163,7 +169,6 @@ cdef class cb_universal_context:
         return ((self.field(1)/4)**d)*np.array(map(lambda i: (np.array(map(lambda m: local_v[aligned_index(i-m)] if ((i-m)[0]>=0 and (i-m)[1]>=0 ) else d.parent(0),self.index_list)))
             ,[x for x in self.index_list if x[1]%2]))
 
-    
     def v_to_d_and_symmetrizing_matrix(self,d):
         return self.make_F_plus_matrix(d)
 
@@ -207,8 +212,7 @@ cdef class cb_universal_context:
             mpfr_mul(<mpfr_t>(<RealNumber>result).value, <mpfr_t>(<RealNumber>result).value,temp1,MPFR_RNDN) 
         #(<RealNumber>result).init=1
         mpfr_clear(temp1)
-        return result
-
+        return result 
 
     def vector_to_positive_matrix_with_prefactor(self,vector):
         """
@@ -688,7 +692,7 @@ cdef class positive_matrix_with_prefactor:
         if not shape:
             shape=(1,1,self.matrix.shape[-1])
         new_b=self.matrix.reshape(shape)
-        return prefactor_numerator(self.prefactor,new_b)
+        return prefactor_numerator(self.prefactor,new_b,self.context)
 
 
 cdef class prefactor_numerator(positive_matrix_with_prefactor):
@@ -761,6 +765,37 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         other.prefactor.pref_constant)
         new_matrix=remnant_poly1*self.matrix + remnant_poly2*other.matrix
         return prefactor_numerator(new_pref,new_matrix,self.context)
+
+    def join(self,other):
+        if not isinstance(other,prefactor_numerator):
+            raise TypeError("must be joined with another prefactor_numerator instance")
+        new_pref=self.prefactor.lcm(other.prefactor)[0]
+        res_poles=new_pref.poles
+        remnant_1=copy.copy(res_poles)
+        remnant_2=copy.copy(res_poles)
+        for x in self.prefactor.poles:
+            if x in remnant_1:
+                new_v=res_poles[x]-self.prefactor.poles[x]
+                if new_v==0:
+                    del remnant_1[x]
+                else:
+                    remnant_1[x]=new_v
+        for x in other.prefactor.poles:                    
+            if x in remnant_2:
+                new_v=res_poles[x]-other.prefactor.poles[x]
+                if new_v==0:
+                    del remnant_2[x]
+                else:
+                    remnant_2[x]=new_v
+        remnant_poly1=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_1[z] for z in remnant_1],\
+        self.prefactor.pref_constant)
+        remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
+        other.prefactor.pref_constant)
+        new_matrix=np.concatenate((remnant_poly1*self.matrix,remnant_poly2*other.matrix))
+        return prefactor_numerator(new_pref,new_matrix,self.context)
+
+ 
+
 
     def __sub__(self,x):
         if not isinstance(x,prefactor_numerator):

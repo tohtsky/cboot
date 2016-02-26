@@ -259,7 +259,7 @@ cdef class scalar_cb_context_generic(cb_universal_context):
                 ans[aligned_index(i,j)]=ans[aligned_index(i,j)]/(2*self.field(2*self.epsilon + 2*i - 1))
         return ans
 
-    def rational_approx_data(self,cutoff,ell,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=True,approximate_poles=True):
+    def rational_approx_data(self,cutoff,ell,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=False,approximate_poles=True):
         return rational_approx_data_generic_dim(self,cutoff,ell,Delta_1_2,Delta_3_4,is_correlator_multiple,approximate_poles)
 
 
@@ -345,12 +345,13 @@ class poleData:
                 raise RuntimeError("pole identifier k must be k <= ell for type 3 pole.")
         else:
             raise NotImplementedError("pole type unrecognizable.")
+
     def residue_of_h(self):
         return self.coeff()*self.context.h_times_rho_k(self.descendant_level(),self.residueEll(),self.residueDelta(),self.S(),self.P()) 
 
 class rational_approx_data_generic_dim:
     """
-    rational_aprrox_data(self,cutoff,epsilon,ell,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=True,scheme="no approx pole",cutoff_for_approximating_pole=0)
+    rational_aprrox_data(self,cutoff,epsilon,ell,Delta_1_2=0,Delta_3_4=0,approximate_poles=True)
     computes and holds rational approximation of conformal block datum. 
     """ 
     def __init__(self,context,cutoff,ell,Delta_1_2,Delta_3_4,is_correlator_multiple,approximate_poles):
@@ -506,7 +507,7 @@ cdef class scalar_cb_2d_context(scalar_cb_context_generic):
             #(<RealNumber>res[i]).init=1 
         return np.array(res) 
     
-    def k_rational_approx_data(self,cutoff,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=True,approximate_poles=True):
+    def k_rational_approx_data(self,cutoff,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=False,approximate_poles=True):
         return k_rational_approx_data(self,cutoff,Delta_1_2,Delta_3_4,is_correlator_multiple,approximate_poles)
 
     def rational_approx_data(self,cutoff,ell,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=True,approximate_poles=True):
