@@ -1,7 +1,7 @@
 import numpy as np 
 from sage.cboot.context_object cimport *
 from sage.cboot.context_object import SDP
-from sage.all import matrix, ZZ, Integer
+from sage.all import matrix, ZZ, Integer, cached_method
 include "sage/ext/interrupt.pxi"
 
 class k_poleData:
@@ -262,6 +262,12 @@ cdef class scalar_cb_context_generic(cb_universal_context):
     def rational_approx_data(self,cutoff,ell,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=False,approximate_poles=True):
         return rational_approx_data_generic_dim(self,cutoff,ell,Delta_1_2,Delta_3_4,is_correlator_multiple,approximate_poles)
 
+    def approx_cb(self,cutoff,ell,Delta_1_2=0,Delta_3_4=0,include_odd=False,approximate_poles=True):
+        if not include_odd:
+            if Delta_1_2 !=0 or Delta_3_4 !=0:
+                include_odd=True
+        g=self.rational_approx_data(cutoff,ell,Delta_1_2,Delta_3_4,is_correlator_multiple=include_odd,approximate_poles=approximate_poles).approx() 
+        return g
 
 class poleData:
     """
@@ -417,13 +423,13 @@ def context_for_scalar(epsilon=0.5, Lambda=15, Prec=800, nMax=250):
     try:
         temp=Integer(epsilon)
         if temp==0: 
-            return scalar_cb_2d_context(Lambda,Prec,nMax)
+            return scalar_cb_2d_context(Lambda,Prec,nMax,)
         elif temp==1:
-            return scalar_cb_4d_context(Lambda,Prec,nMax)
+            return scalar_cb_4d_context(Lambda,Prec,nMax,)
         else:
             raise RuntimeError("Sorry, space-time dimensions d={0} is unsupported. Create it yourself and let me know!".format(2+2*epsilon))
     except TypeError:
-        return scalar_cb_context_generic(Lambda,Prec,nMax,epsilon)
+        return scalar_cb_context_generic(Lambda,Prec,nMax,epsilon,)
 
 def zzbar_anti_symm_to_xy_matrix(Lambda,field=RealField(400)):
     q=ZZ['x']
@@ -504,7 +510,6 @@ cdef class scalar_cb_2d_context(scalar_cb_context_generic):
             mpfr_init2(<mpfr_t>(<RealNumber>res[i]).value,<mp_prec_t>self.precision)
             mpfr_set(<mpfr_t>(<RealNumber>res[i]).value, _array[i],  MPFR_RNDN)
             mpfr_clear(_array[i])
-            #(<RealNumber>res[i]).init=1 
         return np.array(res) 
     
     def k_rational_approx_data(self,cutoff,Delta_1_2=0,Delta_3_4=0,is_correlator_multiple=False,approximate_poles=True):
@@ -546,8 +551,7 @@ class g_rational_approx_data_four_d:
         self.P = 2*self.a*self.b
         self.context=context
         self.chiral_approx_data=k_rational_approx_data(context.k_context,cutoff,Delta_1_2,Delta_3_4,is_correlator_multiple,approximate_poles) 
-    #(Delta[i] + ell )/2 = polePosition_h[i] -> 2*polePosition_h[i] - ell
-    #(Delta[i] - ell -2 )/2 = polePosition_h[i] -> 2*polePosition_h[i] + ell+2
+
     def prefactor(self):
         __chiral_poles = self.chiral_approx_data.prefactor().poles.keys()
         __q = [ 2*x-self.ell for x in __chiral_poles]+[ 2*x+self.ell+2 for x in __chiral_poles]

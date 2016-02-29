@@ -117,8 +117,14 @@ cdef class cb_universal_context:
         for i in range(1,self.Lambda+1):
             self.rho_to_delta[i]=self.rho_to_delta[i-1]*(self.Delta+1-i)/(self.rho*i)
         self.rho_to_delta=self.rho_to_z_matrix.dot(self.rho_to_delta)
-        self.null_ftype=np.array(map(lambda x:RealField(Prec)(0),range(0,((Lambda+1)//2)*(((Lambda+1)//2)+1)/2)))
-        self.null_htype=np.array(map(lambda x:RealField(Prec)(0),range(0,((Lambda+2)//2)*(((Lambda+2)//2)+1)/2))) 
+        self.null_ftype=np.array(map(lambda x:self.field(0),range(0,((Lambda+1)//2)*(((Lambda+1)//2)+1)/2)))
+        self.null_htype=np.array(map(lambda x:self.field(0),range(0,((Lambda+2)//2)*(((Lambda+2)//2)+1)/2))) 
+
+    def dim_f(self):
+        return int(((self.Lambda+1)//2)*(((self.Lambda+1)//2)+1)/2)
+
+    def dim_h(self):
+        return int(((self.Lambda+2)//2)*(((self.Lambda+2)//2)+1)/2)
 
     def __call__(self,x):
         """
@@ -223,6 +229,40 @@ cdef class cb_universal_context:
             return self.positive_matrix_with_prefactor(pref,vector.reshape(1,1,len(vector)))
         else:
             return self.positive_matrix_with_prefactor(pref,vector)
+
+    def lcm_prefactors(prefs,context):
+        for x in prefs[1:]:
+            if isinstance(x,damped_rational):
+                res, pole_former, pole_x  = x.lcm(res)
+
+#    def lcm(self,p):
+#        if isinstance(p,damped_rational):
+#            if not self.base==p.base:
+#                raise RuntimeError("two damped-rational must have the same base!")
+#            self_keys=self.poles.keys()
+#            p_keys=p.poles.keys()
+#            result_poles=copy.copy(self.poles)
+#            p_numerator={}
+#            self_numerator={}
+#            for x in p_keys:
+#                if x in self_keys:
+#                    val_self=self.poles[x]
+#                    val_p=p.poles[x]
+#                    if val_self<val_p:
+#                        result_poles[x]=val_p
+#                        self_numerator.update({x:val_p-val_self})
+#                    elif val_self>val_p:
+#                        p_numerator.update({x:val_self-val_p})
+#                else:
+#                    result_poles.update({x:p.poles[x]})
+#                    self_numerator.update({x:p.poles[x]})
+#            for y in self_keys:
+#                if not y in p_keys:
+#                    p_numerator.update({y:self.poles[y]})
+#            return (damped_rational(result_poles,self.base,self.pref_constant/p.pref_constant,self.context),self_numerator,p_numerator)
+#        else:
+#            raise TypeError("least common multiple must be between another prefactor!")
+
 
 
 cpdef fast_partial_fraction(pole_data,prec):
@@ -541,13 +581,15 @@ def format_poleinfo(poles,context=None):
                 raise TypeError("unreadable initialization for poles")
         else:
             raise TypeError("unreadable initialization for poles")
-            
+
+
+def __dict_add(dict1,dict2):
+    return dict([(x,dict1[x]+dict2[x]) for x in dict2 if x in dict1]\
+            +[(x,dict2[x]) for x in dict2 if x not in dict1]\
+            +[(x,dict1[x]) for x in dict1 if x not in dict2]) 
+    
+           
 cdef class damped_rational:
-    #def __init__(self,poles,base,c,context):
-    #    self.poles=poles
-    #    self.base=<RealNumber> (<RealField_class>(context.field))(base)
-    #    self.context = context
-    #    self.pref_constant=<RealNumber> (<RealField_class>(context.field))(c) 
     def __cinit__(self,poles,base,c,cb_universal_context context):
         self.base=context.field(base)
         self.pref_constant=context.field(c) 
@@ -560,11 +602,13 @@ cdef class damped_rational:
         new_poles=[[x-shift,self.poles[x]] for x in self.poles.keys()]
         new_const=self.pref_constant*self.base**shift
         return damped_rational(new_poles,self.base,new_const,self.context)
+
     def __call__(self,x):
         return self.pref_constant*(self.base**x)*(1/reduce(lambda z,w:z*w,[(x-y)**(self.poles[y]) for y in self.poles.keys()],1))
     def orthogonal_polynomial(self,order):
         passed_poles=[[x,self.poles[x]] for x in self.poles.keys()]
         return anti_band_cholesky_inverse(prefactor_integral(passed_poles,self.base, order, self.context.precision, self.pref_constant), order//2,self.context.precision)
+
     def __mul__(self,y):
         if isinstance(y,damped_rational):           
             res_poles=copy.copy(self.poles)
@@ -604,10 +648,50 @@ cdef class damped_rational:
             else:
                 raise RuntimeError("could not delete pole")
         return damped_rational(res_poles,self.base,self.pref_constant,self.context)
+
+    def lcm_new(self,p):
+        if isinstance(p,damped_rational):
+            if not self.base==p.base:
+                raise RuntimeError("two damped-rational must have the same base!")
+            if p==self:
+                return (self,{},{}) 
+        else:
+            raise TypeError("lcm supported only between damped_rationals")
+
+        dict1=self.poles
+        dict2=p.poles
+
+        def help_lcm(x):
+            val1=dict1[x]
+            val2=dict2[x]
+            if val1 > val2:
+                return ((x,val1),(x,0),(x,val1-val2))
+            elif val2 > val1:
+                return ((x,val2),(x,val2-val1),(x,0))
+            else:
+                return ((x,val2),(x,0),(x,0)) 
+        
+        result_1,self_rem,p_rem =\
+                zip(*(help_lcm(x) for x in dict2 if x in dict1))
+
+        l1=[(x,dict2[x]) for x in dict2 if x not in dict1]
+        l2=[(x,dict1[x]) for x in dict1 if x not in dict2]
+
+        result_poles=dict(list(result_1)+l1+l2)
+        numerator_for_self = dict(l1+[x for x in self_rem if x[1]!=0])
+        numerator_for_p = dict(l2+[x for x in p_rem if x[1]!=0])
+
+        res=damped_rational(result_poles,self.base,\
+                self.pref_constant/p.pref_constant,self.context)
+        return res, numerator_for_self, numerator_for_p
+
     def lcm(self,p):
         if isinstance(p,damped_rational):
             if not self.base==p.base:
                 raise RuntimeError("two damped-rational must have the same base!")
+            if p==self:
+                return (self,{},{})
+
             self_keys=self.poles.keys()
             p_keys=p.poles.keys()
             result_poles=copy.copy(self.poles)
@@ -628,9 +712,10 @@ cdef class damped_rational:
             for y in self_keys:
                 if not y in p_keys:
                     p_numerator.update({y:self.poles[y]})
-            return [damped_rational(result_poles,self.base,self.pref_constant/p.pref_constant,self.context),self_numerator,p_numerator]
+            return (damped_rational(result_poles,self.base,self.pref_constant/p.pref_constant,self.context),self_numerator,p_numerator)
         else:
             raise TypeError("least common multiple must be between another prefactor!")
+
     def __repr__(self):
         output=repr(self.pref_constant)+"*("+repr(self.base)+")**Delta /"
         for x in self.poles:
@@ -646,6 +731,23 @@ cdef class damped_rational:
             output=output+"*"
         return output[:-1]
 
+    def __richcmp__(x, y, op):
+        if op == 2:#Py_EQ
+            return x.__is_equal(y)
+        if op == 3:#Py_NE
+            return not x.__is_equal(y)
+        else:
+            assert False
+
+    def __is_equal(self,x):
+        if not isinstance(x,damped_rational):
+            return False
+        if self.base==x.base and self.pref_constant==x.pref_constant\
+                and self.poles == x.poles:
+            return True
+        else:
+            return False
+
 cdef class positive_matrix_with_prefactor:
     def __cinit__(self, damped_rational prefactor, matrix, cb_universal_context context):
         self.prefactor=prefactor 
@@ -654,16 +756,18 @@ cdef class positive_matrix_with_prefactor:
     def __init__(self, damped_rational prefactor, matrix, context): 
         self.matrix=(matrix)
 
-#    def __init__(self, damped_rational prefactor, matrix, context): 
     def shift(self,x):
         return positive_matrix_with_prefactor(self.prefactor.shift(x),self.context.polynomial_vector_shift(self.matrix,x),self.context)
+
     def degree_max(self):
         try:
             return max((np.vectorize(lambda y:self.context.Delta_Field(y).degree())(self.matrix)).flatten())
         except AttributeError:
             return 0
+
     def normalization_subtract(self,v):
         return normalizing_component_subtract(self.matrix,v) 
+
     def write(self,file_stream,v):
             shuffled_matrix=np.array(map(lambda x:map(lambda y:normalizing_component_subtract(y,v),x),self.matrix))
             sample_points = laguerre_sample_points(self.degree_max()+1,self.context.field,self.context.rho)
@@ -686,14 +790,14 @@ cdef class positive_matrix_with_prefactor:
             map(lambda x :write_polynomial(file_stream,x),orthogonal_polynomial_vector) 
             file_stream.write("</bilinearBasis>\n")
             file_stream.write("</polynomialVectorMatrix>\n")
+
     def reshape(self,shape=None):
-        if len(self.matrix.shape)==3 and self.matrix.shape[0]==self.matrix.shape[1]:
+        if len(self.matrix.shape)==3 and self.matrix.shape[0]==self.matrix.shape[1] and not shape:
             return self
         if not shape:
             shape=(1,1,self.matrix.shape[-1])
         new_b=self.matrix.reshape(shape)
         return prefactor_numerator(self.prefactor,new_b,self.context)
-
 
 cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def add_poles(self,poles):        
@@ -792,10 +896,7 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
         other.prefactor.pref_constant)
         new_matrix=np.concatenate((remnant_poly1*self.matrix,remnant_poly2*other.matrix))
-        return prefactor_numerator(new_pref,new_matrix,self.context)
-
- 
-
+        return prefactor_numerator(new_pref,new_matrix,self.context) 
 
     def __sub__(self,x):
         if not isinstance(x,prefactor_numerator):
@@ -806,6 +907,7 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         pref=self.prefactor(x)
         body=self.context.polynomial_vector_evaluate(self.matrix,x)
         return pref*body
+
     def __repr__(self):
         return repr(self.prefactor)+"\n*"+repr(self.matrix)
 
@@ -834,7 +936,7 @@ class SDP:
         self.pvm = [x.reshape() if (isinstance(x,positive_matrix_with_prefactor)\
                 or isinstance(x,prefactor_numerator)) \
                 else
-                context.vector_to_positive_matrix_with_prefactor(x) \
+                context.vector_to_positive_matrix_with_prefactor(x).reshape() \
                 for x in pvm]
         self.normalization=normalization
         self.objective=objective
