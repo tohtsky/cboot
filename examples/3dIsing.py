@@ -1,8 +1,13 @@
-from sage.all import 
+from sage.all import ZZ
 import re
 # The purpose of this tutorial is to let you see around basic functions in the module.
 from subprocess import Popen, PIPE # To execute sdpb
 from sage.cboot.scalar import context_for_scalar
+
+sdpb = None
+
+if not sdpb:
+    raise RuntimeError("The path for sdpb not specified!")
 
 # Define the context for the bootstrap problems.
 # Lambda controls the maximal number of derivatives acting on conformal blocks.
@@ -53,7 +58,20 @@ def ising_singlet_bound_SDP(delta,modify_list,lmax=30,nu_max=15):
     obj=normalization*0
     return context.SDP(normalization,obj,polynomial_Vector_Matrices)
 
-m=ising_singlet_bound_SDP(0.518,{0:1.5}) 
-sdpbres=Popen(["sdpb","-s","test.xml","--findPrimalFeasible",\
-       "--findDualFeasible","--noFinalCheckpoint"],\
-                 stderr=PIPE,stdout=PIPE).communicate()
+def binary_seach_ising(delta,lower=1.0,upper=3.0):
+    while upper-lower > 0.01:
+        try_delta=(upper+lower)/2
+        print("trying for Delta = {0}".format(try_delta))
+        prob=ising_singlet_bound_SDP(0.518,{0:try_delta}) 
+        prob.write("3dIsing.xml")
+        sdpbres=Popen([sdpb,"-s","test.xml","--findPrimalFeasible",\
+           "--findDualFeasible","--noFinalCheckpoint"],\
+                     stderr=PIPE,stdout=PIPE).communicate()
+        sol=re.compile(r"found ([^ ]) feasible").search(sdpbres[0])
+        if not sol:
+            raise RuntimeError("unexpected sdpb output")
+        if sol.groups[0]=="dual":
+            upper=try_delta
+        elif sol.groups[0]=="primal":
+            lower=try_delta
+    
