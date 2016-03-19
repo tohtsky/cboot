@@ -230,40 +230,6 @@ cdef class cb_universal_context:
         else:
             return self.positive_matrix_with_prefactor(pref,vector)
 
-    def lcm_prefactors(prefs,context):
-        for x in prefs[1:]:
-            if isinstance(x,damped_rational):
-                res, pole_former, pole_x  = x.lcm(res)
-
-#    def lcm(self,p):
-#        if isinstance(p,damped_rational):
-#            if not self.base==p.base:
-#                raise RuntimeError("two damped-rational must have the same base!")
-#            self_keys=self.poles.keys()
-#            p_keys=p.poles.keys()
-#            result_poles=copy.copy(self.poles)
-#            p_numerator={}
-#            self_numerator={}
-#            for x in p_keys:
-#                if x in self_keys:
-#                    val_self=self.poles[x]
-#                    val_p=p.poles[x]
-#                    if val_self<val_p:
-#                        result_poles[x]=val_p
-#                        self_numerator.update({x:val_p-val_self})
-#                    elif val_self>val_p:
-#                        p_numerator.update({x:val_self-val_p})
-#                else:
-#                    result_poles.update({x:p.poles[x]})
-#                    self_numerator.update({x:p.poles[x]})
-#            for y in self_keys:
-#                if not y in p_keys:
-#                    p_numerator.update({y:self.poles[y]})
-#            return (damped_rational(result_poles,self.base,self.pref_constant/p.pref_constant,self.context),self_numerator,p_numerator)
-#        else:
-#            raise TypeError("least common multiple must be between another prefactor!")
-
-
 
 cpdef fast_partial_fraction(pole_data,prec):
     cdef int n = len(pole_data)
@@ -649,7 +615,8 @@ cdef class damped_rational:
                 raise RuntimeError("could not delete pole")
         return damped_rational(res_poles,self.base,self.pref_constant,self.context)
 
-    def lcm_new(self,p):
+    #def lcm_new(self,p):
+    def lcm(self,p):
         if isinstance(p,damped_rational):
             if not self.base==p.base:
                 raise RuntimeError("two damped-rational must have the same base!")
@@ -682,39 +649,8 @@ cdef class damped_rational:
         numerator_for_p = dict(l2+[x for x in p_rem if x[1]!=0])
 
         res=damped_rational(result_poles,self.base,\
-                self.pref_constant/p.pref_constant,self.context)
+                self.context(1),self.context)
         return res, numerator_for_self, numerator_for_p
-
-    def lcm(self,p):
-        if isinstance(p,damped_rational):
-            if not self.base==p.base:
-                raise RuntimeError("two damped-rational must have the same base!")
-            if p==self:
-                return (self,{},{})
-
-            self_keys=self.poles.keys()
-            p_keys=p.poles.keys()
-            result_poles=copy.copy(self.poles)
-            p_numerator={}
-            self_numerator={}
-            for x in p_keys:
-                if x in self_keys:
-                    val_self=self.poles[x]
-                    val_p=p.poles[x]
-                    if val_self<val_p:
-                        result_poles[x]=val_p
-                        self_numerator.update({x:val_p-val_self})
-                    elif val_self>val_p:
-                        p_numerator.update({x:val_self-val_p})
-                else:
-                    result_poles.update({x:p.poles[x]})
-                    self_numerator.update({x:p.poles[x]})
-            for y in self_keys:
-                if not y in p_keys:
-                    p_numerator.update({y:self.poles[y]})
-            return (damped_rational(result_poles,self.base,self.pref_constant/p.pref_constant,self.context),self_numerator,p_numerator)
-        else:
-            raise TypeError("least common multiple must be between another prefactor!")
 
     def __repr__(self):
         output=repr(self.pref_constant)+"*("+repr(self.base)+")**Delta /"
@@ -804,6 +740,10 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         new_pref=self.prefactor.add_poles(poles)
         return prefactor_numerator(new_pref,self.matrix,self.context)
 
+    def rdot(self,M):
+        newBody=M.dot(self.matrix)
+        return prefactor_numerator(self.prefactor,newBody,self.context) 
+
     def shift(self,x):
         return prefactor_numerator(self.prefactor.shift(x),self.context.polynomial_vector_shift(self.matrix,x),self.context)
 
@@ -845,30 +785,56 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def __add__(self,other):
         if not isinstance(other,prefactor_numerator):
             raise TypeError("must be added to another prefactor_numerator")
-        new_pref=self.prefactor.lcm(other.prefactor)[0]
+        new_pref,remnant_1,remnant_2=self.prefactor.lcm(other.prefactor)
         res_poles=new_pref.poles
-        remnant_1=copy.copy(res_poles)
-        remnant_2=copy.copy(res_poles)
-        for x in self.prefactor.poles:
-            if x in remnant_1:
-                new_v=res_poles[x]-self.prefactor.poles[x]
-                if new_v==0:
-                    del remnant_1[x]
-                else:
-                    remnant_1[x]=new_v
-        for x in other.prefactor.poles:                    
-            if x in remnant_2:
-                new_v=res_poles[x]-other.prefactor.poles[x]
-                if new_v==0:
-                    del remnant_2[x]
-                else:
-                    remnant_2[x]=new_v
         remnant_poly1=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_1[z] for z in remnant_1],\
         self.prefactor.pref_constant)
         remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
         other.prefactor.pref_constant)
-        new_matrix=remnant_poly1*self.matrix + remnant_poly2*other.matrix
-        return prefactor_numerator(new_pref,new_matrix,self.context)
+        new_matrix=self.prefactor.pref_constant*remnant_poly1*self.matrix \
+                + other.prefactor.pref_constant*remnant_poly2*other.matrix
+        return prefactor_numerator(new_pref,new_matrix,self.context) 
+
+
+#    def __add__(self,other):
+#        if not isinstance(other,prefactor_numerator):
+#            raise TypeError("must be added to another prefactor_numerator")
+#        new_pref=self.prefactor.lcm(other.prefactor)[0]
+#        res_poles=new_pref.poles
+#        remnant_1=copy.copy(res_poles)
+#        remnant_2=copy.copy(res_poles)
+#        for x in self.prefactor.poles:
+#            if x in remnant_1:
+#                new_v=res_poles[x]-self.prefactor.poles[x]
+#                if new_v==0:
+#                    del remnant_1[x]
+#                else:
+#                    remnant_1[x]=new_v
+#        for x in other.prefactor.poles:                    
+#            if x in remnant_2:
+#                new_v=res_poles[x]-other.prefactor.poles[x]
+#                if new_v==0:
+#                    del remnant_2[x]
+#                else:
+#                    remnant_2[x]=new_v
+#        remnant_poly1=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_1[z] for z in remnant_1],\
+#        self.prefactor.pref_constant)
+#        remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
+#        other.prefactor.pref_constant)
+#        new_matrix=remnant_poly1*self.matrix + remnant_poly2*other.matrix
+#        return prefactor_numerator(new_pref,new_matrix,self.context)
+
+    def new_join(self,other):
+        if not isinstance(other,prefactor_numerator):
+            raise TypeError("must be joined with another prefactor_numerator instance")
+        new_pref, remnant_1,remnant_2=self.prefactor.lcm(other.prefactor)
+        res_poles=new_pref.poles
+        remnant_poly1=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_1[z] for z in remnant_1],\
+        self.prefactor.pref_constant)
+        remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
+        other.prefactor.pref_constant)
+        new_matrix=np.concatenate((self.prefactor.pref_constant*remnant_poly1*self.matrix,self.prefactor.pref_constant*remnant_poly2*other.matrix))
+        return prefactor_numerator(new_pref,new_matrix,self.context) 
 
     def join(self,other):
         if not isinstance(other,prefactor_numerator):
