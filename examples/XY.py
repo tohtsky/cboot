@@ -70,8 +70,7 @@ def O_n_problem(delta,modify_list,block_store,NSO=2):
         if sector is not "A":
             spins=[spin for spin in block_store.keys() if not spin%2]
         else:
-            spins=[spin for spin in block_store.keys() if not spin%2]
-        
+            spins=[spin for spin in block_store.keys() if spin%2] 
         for spin in spins:
             try:
                 shift=context(modify_list[(sector,spin)])
@@ -82,7 +81,4 @@ def O_n_problem(delta,modify_list,block_store,NSO=2):
                     shift=spin+context.epsilon*2
             pvms.append(g_to_F(delta,sector,block_store[spin],NSO,shift=shift))
     norm=g_to_F(delta,"S",context.gBlock(0,0,0,0),NSO)
-    return context.SDP(norm,norm*0,pvms)
-
-
-
+    return context.SDP(norm,norm*0,pvms) 
