@@ -2,12 +2,16 @@ from sage.libs.mpfr cimport *
 from sage.rings.real_mpfr cimport * 
 import numpy as np 
 
-from sage.all import Matrix
+from sage.all import Matrix, is_square, sqrt
 cimport numpy as np
 from sage.functions.other import gamma 
 from sage.rings.real_mpfr import RR
 import copy
 import re
+
+def __mult_poles(poles,pref_const,context):
+    return reduce(lambda x,y:x*y,[(context.Delta -z)**poles[z] for z in poles], pref_const)
+
 
 def z_zbar_derivative_to_x_y_derivative_Matrix_m(Lambda,field=RealField(400)):
     """
@@ -77,6 +81,7 @@ def z_zbar_derivative_to_x_y_derivative_Matrix(Lambda,field=RealField(400)):
             else:
                 map(lambda x, y:set_ij_elements(x,(i+j-y)/2,y,i,j-i),temp[0::2],range(0,len(temp),2)) 
     return np.array(map(lambda x: 0 if x==None else x, result.flatten())).reshape(dimG,dimG)
+
 
 cdef class cb_universal_context:
     """
@@ -216,7 +221,6 @@ cdef class cb_universal_context:
         for j in range(0,n):
             mpfr_add_ui(temp1,<mpfr_t>(<RealNumber>x_c).value, j,MPFR_RNDN)
             mpfr_mul(<mpfr_t>(<RealNumber>result).value, <mpfr_t>(<RealNumber>result).value,temp1,MPFR_RNDN) 
-        #(<RealNumber>result).init=1
         mpfr_clear(temp1)
         return result 
 
@@ -229,6 +233,180 @@ cdef class cb_universal_context:
             return self.positive_matrix_with_prefactor(pref,vector.reshape(1,1,len(vector)))
         else:
             return self.positive_matrix_with_prefactor(pref,vector)
+
+    def lcms(self,preflist):
+        res={}
+        for pref in preflist:
+            d_order=pref.poles
+            for Delta in d_order:
+                try:
+                    m=res[Delta]
+                    m_new=d_order[Delta]
+                    if m_new > m:
+                        res.update({Delta:m_new})
+                except KeyError:
+                    m_new=d_order[Delta]
+                    res.update({Delta:m_new})
+        rems=[]
+        for pref in preflist: 
+            d_order=pref.poles 
+            rem=[]
+            for Delta in res:
+                mr=res[Delta]
+                try:
+                    m = d_order[Delta]
+                    if mr - m > 0:
+                        rem.append((Delta,mr-m))
+                except KeyError:
+                    rem.append((Delta,mr))
+            rems.append(dict(rem)) 
+        res=self.damped_rational(res,self(1))
+        return (res,rems)
+
+    def join(self,l):
+        dims={}
+        pns=[]
+        pnindices=[]
+        nBlock=len(l)
+        bodies={}
+        nrow=None
+        for n,mat in enumerate(l):
+            if not nrow:
+                nrow=len(mat)
+            else:
+                if not nrow==len(mat):
+                    raise RuntimeError("unequal dim")
+            for i,row in enumerate(mat):
+                if not nrow==len(row):
+                    raise RuntimeError("unequal dim") 
+                for j,x in enumerate(row):
+                    if isinstance(x,prefactor_numerator):
+                        len_x=len(x.matrix)
+                        pns.append(x)
+                        pnindices.append((n,i,j))
+                    else:
+                        len_x=int(x)
+                        v=np.ndarray(len_x,dtype='O')
+                        v[:]=self(0)
+                        bodies.update({(n,i,j):v})
+                    try:
+                        if not dims[n]==len_x:
+                            raise RuntimeError("Input has inconsistent dimensions.")
+                    except KeyError:
+                        dims.update({n:len_x}) 
+
+        res_pref, pref_rems=self.lcms([pn.prefactor for pn in pns]) 
+        vecs=[(ind,__mult_poles(rem,pn.prefactor.pref_constant*pn.matrix,self))
+                for ind, pn, rem in zip(pnindices, pns, pref_rems)]
+        bodies.update(dict(vecs))
+        res=np.ndarray((nrow,nrow,sum([dims[x] for x in dims])),dtype='O')
+        for i in range(nrow):
+            for j in range(nrow): 
+                v=(bodies[(n,i,j)].reshape((dims[n],)) for n in range(0,nBlock))
+                vv=np.concatenate(tuple(v))
+                res[i,j]=vv
+        return prefactor_numerator(res_pref,res,self)
+
+    def sumrule_to_SDP(self,normalization,objective,svs,**kwargs):
+        n_block=len(svs[0]) 
+        dims={}
+        shapes=[]
+        res=[]
+        tbs=dict([(n,[]) for n in range(n_block)])
+        for m,sv in enumerate(svs):
+            if len(sv)!=n_block:
+                raise RuntimeError("Sum rule vector has in equal dimensions!") 
+            psv=[]
+            for n,component in enumerate(sv):
+                if not isinstance(component,list):
+                    pcomponent=[[component]]
+                else:
+                    pcomponent=component
+                for i, row in enumerate(pcomponent):
+                    for j,x in enumerate(row):
+                        if isinstance(x,prefactor_numerator): 
+                            try:
+                                givendim=dims[n]
+                                if givendim!=x.matrix.shape[-1]:
+                                    raise RuntimeError("Found inconsistent dimension.") 
+                            except KeyError:
+                                dims[n]=x.matrix.shape[-1]
+                        elif isinstance(x,np.ndarray):
+                            pcomponent[i][j]=self.vector_to_positive_matrix_with_prefactor(x)
+                            try:
+                                givendim=dims[n]
+                                if givendim!=x.shape[-1]:
+                                    raise RuntimeError("Found inconsistent dimension.") 
+                            except KeyError:
+                                dims[n]=x.shape[-1] 
+                        else:
+                            x=int(x)
+                            tbs[n].append((m,n,i,j))
+                psv.append(pcomponent)
+            res.append(psv) 
+        if n_block > len(dims.keys()):
+            raise RuntimeError("There exists a component zero for all")
+        for k in dims:
+            try:
+                mlist=tbs[k]
+            except KeyError:
+                mlist=[]
+            for m,n,i,j in mlist:
+                res[m][n][i][j]=dims[k]
+
+        if isinstance(normalization,np.ndarray):
+            norm=normalization
+        elif isinstance(normalization,list):
+            norm_list=[]
+            for n,v in enumerate(normalization):
+                if isinstance(v,np.ndarray):
+                    norm_list.append(v)
+                elif v==0:
+                    tba=np.ndarray((dims[n],),dtype='O')
+                    tba[:]=self(0)
+                    norm_list.append(tba)
+            norm=np.concatenate(norm_list)
+        else:
+            raise NotImplemented
+
+        if isinstance(objective,np.ndarray):
+            obj=objective
+        elif isinstance(objective,list):
+            obj_list=[]
+            for n,v in enumerate(objective):
+                if isinstance(v,np.ndarray):
+                    obj_list.append(v)
+                elif v==0:
+                    tba=np.ndarray((dims[n],),dtype='O')
+                    tba[:]=self(0)
+                    obj_list.append(tba)
+            obj=np.concatenate(obj_list)
+        else:
+            try:
+                if int(objective)==0:
+                    obj=np.ndarray((sum([dims[n] for n in dims]),),dtype='O')
+                    obj[:]=self(0) 
+                else:
+                    raise NotImplementedError("Got unrecognizable input for objective") 
+            except TypeError:
+                raise NotImplementedError("Got unrecognizable input for objective") 
+        return self.SDP(norm,obj,[self.join(sv) for sv in res],**kwargs)
+
+#   def concatenate(self,pns):
+#        if not isinstance(pns,list):
+#            raise TypeError("argument must be a list")
+#        nparray=[]
+#        shape=[len(pns),None]
+#        for i,e in enumerate(pns):
+#            if isinstance(e,list):
+#                if not is_square(len(e)):
+#                    raise RuntimeError("The {0}th column of the input is not square".format(str(i)))
+#                if not shape[1]:
+#                    shape[1]=sqrt(len(e))
+#
+#                e.append([[x for x in e[j:j+shape[1]]
+#
+#                #nparray.append([e[j)
 
 
 cpdef fast_partial_fraction(pole_data,prec):
@@ -352,7 +530,7 @@ cpdef prefactor_integral(pole_data, base, int x_power, prec,c=1):
     index_list = []
     for i in range(0,len(pole_data)): 
         if field(pole_data[i][0]) > 0:
-            raise NotImplementedError
+            raise NotImplementedError("There exists a pole on the integration contour of the prefactor!")
         if pole_data[i][1]==1:
             index_list.append([i,1])
         elif pole_data[i][1]==2:
@@ -735,6 +913,23 @@ cdef class positive_matrix_with_prefactor:
         new_b=self.matrix.reshape(shape)
         return prefactor_numerator(self.prefactor,new_b,self.context)
 
+def dot(x,y):
+    # Unfortunately __numpy_ufunc__ seems to be disabled (temporarily?) 
+    # so I cannot override np.dot
+    #
+    if isinstance(x,prefactor_numerator):
+        if isinstance(y,prefactor_numerator):
+            pref=x.prefactor*y.prefactor
+            return prefactor_numerator(pref,np.dot(x.matrix,y.matrix),x.context)
+        else:
+            return prefactor_numerator(x.prefactor,np.dot(x.matrix,y),x.context)
+    else:
+        if isinstance(y,prefactor_numerator):
+            return prefactor_numerator(y.prefactor,np.dot(x,y.matrix),y.context)
+        else:
+            return np.dot(x,y)
+
+
 cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def add_poles(self,poles):        
         new_pref=self.prefactor.add_poles(poles)
@@ -775,11 +970,18 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         result_pref=damped_rational(res_poles,self.prefactor.base,1,self.context)
         return prefactor_numerator(result_pref,result_numr,self.context)
 
-    def __rmul__(self,x):
-        return self.__mul__(x)
+#    def __mul__(self,x):
+#        new_mat=x*self.matrix
+#        return prefactor_numerator(self.prefactor,new_mat,self.context) 
 
-    def __mul__(self,x):
+    def __rmul__(self,x):
         new_mat=x*self.matrix
+        return prefactor_numerator(self.prefactor,new_mat,self.context) 
+       
+#        return self.__mul__(x)
+
+    def __neg__(self):
+        new_mat=-self.matrix
         return prefactor_numerator(self.prefactor,new_mat,self.context) 
 
     def __add__(self,other):
@@ -791,8 +993,8 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         self.prefactor.pref_constant)
         remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
         other.prefactor.pref_constant)
-        new_matrix=self.prefactor.pref_constant*remnant_poly1*self.matrix \
-                + other.prefactor.pref_constant*remnant_poly2*other.matrix
+        new_matrix=remnant_poly1*self.matrix \
+                + remnant_poly2*other.matrix
         return prefactor_numerator(new_pref,new_matrix,self.context) 
 
 
@@ -833,34 +1035,6 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         self.prefactor.pref_constant)
         remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
         other.prefactor.pref_constant)
-        new_matrix=np.concatenate((self.prefactor.pref_constant*remnant_poly1*self.matrix,self.prefactor.pref_constant*remnant_poly2*other.matrix))
-        return prefactor_numerator(new_pref,new_matrix,self.context) 
-
-    def join(self,other):
-        if not isinstance(other,prefactor_numerator):
-            raise TypeError("must be joined with another prefactor_numerator instance")
-        new_pref=self.prefactor.lcm(other.prefactor)[0]
-        res_poles=new_pref.poles
-        remnant_1=copy.copy(res_poles)
-        remnant_2=copy.copy(res_poles)
-        for x in self.prefactor.poles:
-            if x in remnant_1:
-                new_v=res_poles[x]-self.prefactor.poles[x]
-                if new_v==0:
-                    del remnant_1[x]
-                else:
-                    remnant_1[x]=new_v
-        for x in other.prefactor.poles:                    
-            if x in remnant_2:
-                new_v=res_poles[x]-other.prefactor.poles[x]
-                if new_v==0:
-                    del remnant_2[x]
-                else:
-                    remnant_2[x]=new_v
-        remnant_poly1=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_1[z] for z in remnant_1],\
-        self.prefactor.pref_constant)
-        remnant_poly2=reduce(lambda x,y:x*y,[(self.context.Delta -z)**remnant_2[z] for z in remnant_2],\
-        other.prefactor.pref_constant)
         new_matrix=np.concatenate((remnant_poly1*self.matrix,remnant_poly2*other.matrix))
         return prefactor_numerator(new_pref,new_matrix,self.context) 
 
@@ -878,7 +1052,7 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         return repr(self.prefactor)+"\n*"+repr(self.matrix)
 
 
-def find_local_minima(pol,label,field=RR):
+def find_local_minima(pol,label,field=RR,context=None):
     solpol=pol.derivative()
     solpol2=solpol.derivative()*pol - solpol**2
     sols=solpol.roots()

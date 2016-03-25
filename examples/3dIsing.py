@@ -62,7 +62,7 @@ def binary_seach_ising(delta,lower=1.0,upper=3.0):
     while upper-lower > 0.01:
         try_delta=(upper+lower)/2
         print("trying for Delta = {0}".format(try_delta))
-        prob=ising_singlet_bound_SDP(0.518,{0:try_delta}) 
+        prob=ising_singlet_bound_SDP(delta,{0:try_delta}) 
         prob.write("3dIsing.xml")
         sdpbres=Popen([sdpb,"-s","test.xml","--findPrimalFeasible",\
            "--findDualFeasible","--noFinalCheckpoint"],\
@@ -75,3 +75,5 @@ def binary_seach_ising(delta,lower=1.0,upper=3.0):
         elif sol.groups[0]=="primal":
             lower=try_delta
     
+if __name__=='__main__':
+    binary_seach_ising(0.518)

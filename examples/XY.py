@@ -1,8 +1,8 @@
+from sage.all import *
 import sage.cboot.scalar as cb
 import numpy as np
 import re
 
-context=cb.context_for_scalar(epsilon=0.5,)
 
 #Store the conformal blocks
 def store_conformal_blocks(lmax,nu_max,context):
@@ -12,12 +12,12 @@ def store_conformal_blocks(lmax,nu_max,context):
         res.update({spin:g})
     return res
 
-g_stored=store_conformal_blocks(25,15,context)
-
 
 def g_to_F(delta,sector,g,NSO,shift=None):
-    # We should distinguish between constant vector (used e.g. for c-minimization)
-    # and rational-approximated conformal block
+    # Setup a function which returns a vector included in O(N) sum-rule.
+
+    # We should distinguish between constant vector
+    #(used e.g. for c-minimization) and rational-approximated conformal block
     if shift==None:
         g_body=g
     else:
@@ -27,6 +27,7 @@ def g_to_F(delta,sector,g,NSO,shift=None):
     # accompanied by (anti)-symmetrization    
     F=context.make_F_minus_matrix(delta).dot(g_body)
     H=context.make_F_plus_matrix(delta).dot(g_body)
+
     if sector=="S":
         # context.null_ftype is a null vector with dimension that of F^{(-)}
         body=np.concatenate((context.null_ftype,F,H))
@@ -42,23 +43,8 @@ def g_to_F(delta,sector,g,NSO,shift=None):
     else:
         return context.prefactor_numerator(g.prefactor,body).shift(shift)
 
-def single_continuous_sector(delta,sector,spin,modify_list,block_store,NSO):
-    """
-    modify_list argument should be a dictionary to specify where we insert hypothetical gaps.
-    For example, if we assume a gap 1.8 in O(N)-singlet scalar operator, we set
-        modify_list = {("S",0):1.8}        
-    """
-    try:
-        shift=context(modify_list[(sector,spin)])
-    except KeyError:
-        if spin==0:
-            shift=context.epsilon
-        else:
-            shift=spin+context.epsilon*2
-    return g_to_F(delta,sector,block_store[spin],NSO,shift=shift)
-
-
-def O_n_problem(delta,modify_list,block_store,NSO=2):
+def O_n_problem(delta,modify_list,block_store,NSO=2,norm_point=("S",0,0),
+        obj_point=None):
     """
     modify_list argument should be a dictionary to specify where we insert hypothetical gaps.
     For example, if we assume a gap 1.8 in O(N)-singlet scalar operator, we set
@@ -70,8 +56,7 @@ def O_n_problem(delta,modify_list,block_store,NSO=2):
         if sector is not "A":
             spins=[spin for spin in block_store.keys() if not spin%2]
         else:
-            spins=[spin for spin in block_store.keys() if not spin%2]
-        
+            spins=[spin for spin in block_store.keys() if spin%2] 
         for spin in spins:
             try:
                 shift=context(modify_list[(sector,spin)])
@@ -81,8 +66,20 @@ def O_n_problem(delta,modify_list,block_store,NSO=2):
                 else:
                     shift=spin+context.epsilon*2
             pvms.append(g_to_F(delta,sector,block_store[spin],NSO,shift=shift))
-    norm=g_to_F(delta,"S",context.gBlock(0,0,0,0),NSO)
-    return context.SDP(norm,norm*0,pvms)
 
+    norm=g_to_F(delta,norm_point[0],
+            context.gBlock(norm_point[1],norm_point[2],0,0),NSO)
 
+    if not obj_point:
+        obj=norm*0
+    else:
+        obj=g_to_F(delta,obj_point[0],
+                context.gBlock(obj_point[1],obj_point[2],0,0),NSO) 
 
+    return context.SDP(norm,obj,pvms) 
+
+if __name__=="__main__":
+    context=cb.context_for_scalar(epsilon=0.5,)
+    g_stored=store_conformal_blocks(25,15,context) 
+    prob=O_n_problem(0.52,{("S",0):2.0},g_stored)
+    prob.write("on.xml") 
