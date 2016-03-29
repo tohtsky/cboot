@@ -392,6 +392,22 @@ cdef class cb_universal_context:
                 raise NotImplementedError("Got unrecognizable input for objective") 
         return self.SDP(norm,obj,[self.join(sv) for sv in res],**kwargs)
 
+    def dot(self,x,y):
+        # Unfortunately __numpy_ufunc__ seems to be disabled (temporarily?) 
+        # so I cannot override np.dot
+        #
+        if isinstance(x,prefactor_numerator):
+            if isinstance(y,prefactor_numerator):
+                pref=x.prefactor*y.prefactor
+                return prefactor_numerator(pref,np.dot(x.matrix,y.matrix),self)
+            else:
+                return prefactor_numerator(x.prefactor,np.dot(x.matrix,y),self)
+        else:
+            if isinstance(y,prefactor_numerator):
+                return prefactor_numerator(y.prefactor,np.dot(x,y.matrix),self)
+            else:
+                return np.dot(x,y)
+
 #   def concatenate(self,pns):
 #        if not isinstance(pns,list):
 #            raise TypeError("argument must be a list")
@@ -913,21 +929,7 @@ cdef class positive_matrix_with_prefactor:
         new_b=self.matrix.reshape(shape)
         return prefactor_numerator(self.prefactor,new_b,self.context)
 
-def dot(x,y):
-    # Unfortunately __numpy_ufunc__ seems to be disabled (temporarily?) 
-    # so I cannot override np.dot
-    #
-    if isinstance(x,prefactor_numerator):
-        if isinstance(y,prefactor_numerator):
-            pref=x.prefactor*y.prefactor
-            return prefactor_numerator(pref,np.dot(x.matrix,y.matrix),x.context)
-        else:
-            return prefactor_numerator(x.prefactor,np.dot(x.matrix,y),x.context)
-    else:
-        if isinstance(y,prefactor_numerator):
-            return prefactor_numerator(y.prefactor,np.dot(x,y.matrix),y.context)
-        else:
-            return np.dot(x,y)
+
 
 
 cdef class prefactor_numerator(positive_matrix_with_prefactor):
