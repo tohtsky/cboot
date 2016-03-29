@@ -83,3 +83,4 @@ if __name__=="__main__":
     g_stored=store_conformal_blocks(25,15,context) 
     prob=O_n_problem(0.52,{("S",0):2.0},g_stored)
     prob.write("on.xml") 
+

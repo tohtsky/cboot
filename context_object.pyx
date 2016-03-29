@@ -353,7 +353,6 @@ cdef class cb_universal_context:
                 mlist=[]
             for m,n,i,j in mlist:
                 res[m][n][i][j]=dims[k]
-
         if isinstance(normalization,np.ndarray):
             norm=normalization
         elif isinstance(normalization,list):
@@ -407,7 +406,6 @@ cdef class cb_universal_context:
                 return prefactor_numerator(y.prefactor,np.dot(x,y.matrix),self)
             else:
                 return np.dot(x,y)
-
 #   def concatenate(self,pns):
 #        if not isinstance(pns,list):
 #            raise TypeError("argument must be a list")
