@@ -4,7 +4,7 @@ import re
 from subprocess import Popen, PIPE # To execute sdpb
 from sage.cboot.scalar import context_for_scalar
 
-sdpb = None
+sdpb = "sdpb"#None
 
 if not sdpb:
     raise RuntimeError("The path for sdpb not specified!")
@@ -64,9 +64,10 @@ def binary_seach_ising(delta,lower=1.0,upper=3.0):
         print("trying for Delta = {0}".format(try_delta))
         prob=ising_singlet_bound_SDP(delta,{0:try_delta}) 
         prob.write("3dIsing.xml")
-        sdpbres=Popen([sdpb,"-s","test.xml","--findPrimalFeasible",\
+        sdpbres=Popen([sdpb,"-s","3dIsing.xml","--findPrimalFeasible",\
            "--findDualFeasible","--noFinalCheckpoint"],\
                      stderr=PIPE,stdout=PIPE).communicate()
+        print sdpbres
         sol=re.compile(r"found ([^ ]) feasible").search(sdpbres[0])
         if not sol:
             raise RuntimeError("unexpected sdpb output")
