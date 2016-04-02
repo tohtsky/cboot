@@ -78,13 +78,40 @@ def bs(delta,upper=3,lower=1,sector="S",sdp_method=make_SDP,NSO=2):
             raise RuntimeError("Unexpected return from sdpb") 
     return upper
 
+def make_SDP_ccc(delta,gap_dict,NSO):
+    delta=context(delta)
+    pvms=[]
+    for sector in ("S","T","A"):
+        if sector is not "A":
+            spins=[spin for spin in cbs.keys() if not spin%2]
+        else:
+            spins=[spin for spin in cbs.keys() if spin%2] 
+        for spin in spins:
+            pvms.append(make_F(delta,sector,spin,gap_dict,NSO))
+
+    norm=make_F(delta,"A",1,None,NSO,Delta=1+2*context.epsilon) 
+    obj=make_F(delta,"S",0,None,NSO,Delta=0) 
+    return context.sumrule_to_SDP(norm,obj,pvms)
+
+def ccc(delta,NSO=20):
+    prob=make_SDP_ccc(delta,{},NSO)
+    prob.write("3d_On_ccc.xml")
+    sdpbargs=[sdpb,"-s","3d_On_ccc.xml","--noFinalCheckpoint"]
+    out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
+    sol=re.compile(r'primalObjective *= *([^ ]+) *$',re.MULTILINE)\
+            .search(out).groups()[0]
+    return -1/float(sol)
 
 if __name__=="__main__":
     # The default example
-    print bs(0.52)
+    #print bs(0.52)
 
     # ======================================
     # if you want to derive the bound on Delta_T 
-    print bs(0.52,sector="T")
+    #print bs(0.52,sector="T")
 
-
+    # ======================================
+    # Current central charge lowr bound for O(20)
+    print ccc(0.50639,NSO=20)/2
+    # Delta_phi value 0.50369 is taken from 1307.6856
+    # BTW, Large N prediction for O(20)  vector model is 0.9639
