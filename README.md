@@ -17,3 +17,12 @@ In my environment, for example, this is '/Users/tomoki/sources/sage-6.8/src'.
     Extension('sage.cboot.scalar_context',sources=['sage/cboot/scalar/scalar_context.pyx','sage/cboot/scalar/hor_formula.c','sage/cboot/scalar/hor_recursion.c','sage/cboot/scalar/k_compute.c'],include_dirs=['sage/cboot','sage/cboot/scalar'],depends=['sage/cboot/context_variables.h'], extra_compile_args=['-std=c99'],libraries=['gmp','mpfr'],language = 'c'),
     ```
 4. Then run from your terminal `sage -b`.
+
+
+###Examples 
+Examples are provided in ipython notebooks. These include
+1. The 3d Ising model (single correlator)
+2. The 3d XY model (single correlator)
+3. The 3d Ising model (mixed correlator)
+
+Supersymmetric examples are under construction.
