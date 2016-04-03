@@ -224,15 +224,15 @@ cdef class cb_universal_context:
         mpfr_clear(temp1)
         return result 
 
-    def vector_to_positive_matrix_with_prefactor(self,vector):
+    def vector_to_prefactor_numerator(self,vector):
         """
         Convert a constant (i.e., non-polynomial) vector into positive_matrix_with_prefactor.
         """
         pref=self.damped_rational([],1)
         if len(vector.shape)==1:
-            return self.positive_matrix_with_prefactor(pref,vector.reshape(1,1,len(vector)))
+            return self.prefactor_numerator(pref,vector.reshape(1,1,len(vector)))
         else:
-            return self.positive_matrix_with_prefactor(pref,vector)
+            return self.prefactor_numerator(pref,vector)
 
     def lcms(self,preflist):
         res={}
@@ -281,7 +281,7 @@ cdef class cb_universal_context:
                     raise RuntimeError("unequal dim") 
                 for j,x in enumerate(row):
                     if isinstance(x,prefactor_numerator):
-                        len_x=len(x.matrix)
+                        len_x=x.matrix.shape[-1]
                         pns.append(x)
                         pnindices.append((n,i,j))
                     else:
@@ -332,7 +332,7 @@ cdef class cb_universal_context:
                             except KeyError:
                                 dims[n]=x.matrix.shape[-1]
                         elif isinstance(x,np.ndarray):
-                            pcomponent[i][j]=self.vector_to_positive_matrix_with_prefactor(x)
+                            pcomponent[i][j]=self.vector_to_prefactor_numerator(x)
                             try:
                                 givendim=dims[n]
                                 if givendim!=x.shape[-1]:
@@ -970,19 +970,17 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         result_pref=damped_rational(res_poles,self.prefactor.base,1,self.context)
         return prefactor_numerator(result_pref,result_numr,self.context)
 
-#    def __mul__(self,x):
-#        new_mat=x*self.matrix
-#        return prefactor_numerator(self.prefactor,new_mat,self.context) 
+    def multiply_factored_rational(self,poles,factors,C):
+        return self.add_poles(poles).multiply_factored_polynomial(factors,C)
 
     def __rmul__(self,x):
         new_mat=x*self.matrix
         return prefactor_numerator(self.prefactor,new_mat,self.context) 
-       
-#        return self.__mul__(x)
 
     def __neg__(self):
         new_mat=-self.matrix
         return prefactor_numerator(self.prefactor,new_mat,self.context) 
+
 
     def __add__(self,other):
         if not isinstance(other,prefactor_numerator):
@@ -1041,7 +1039,7 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
     def __sub__(self,x):
         if not isinstance(x,prefactor_numerator):
             raise TypeError("must be added to another prefactor_numerator")
-        return self.__add__(x.__mul__(-1)) 
+        return self.__add__(x.__neg__()) 
 
     def __call__(self,x):
         pref=self.prefactor(x)
@@ -1076,7 +1074,7 @@ class SDP:
         self.pvm = [x.reshape() if (isinstance(x,positive_matrix_with_prefactor)\
                 or isinstance(x,prefactor_numerator)) \
                 else
-                context.vector_to_positive_matrix_with_prefactor(x).reshape() \
+                context.vector_to_prefactor_numerator(x).reshape() \
                 for x in pvm]
         self.normalization=normalization
         self.objective=objective

@@ -104,7 +104,7 @@ def ccc(delta,NSO=20):
 
 if __name__=="__main__":
     # The default example
-    #print bs(0.52)
+    print bs(0.52)
 
     # ======================================
     # if you want to derive the bound on Delta_T 
@@ -112,6 +112,6 @@ if __name__=="__main__":
 
     # ======================================
     # Current central charge lowr bound for O(20)
-    print ccc(0.50639,NSO=20)/2
+    #print ccc(0.50639,NSO=20)/2
     # Delta_phi value 0.50369 is taken from 1307.6856
-    # BTW, Large N prediction for O(20)  vector model is 0.9639
+    #Large N prediction for O(20)  vector model is 0.9639
