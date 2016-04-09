@@ -1,4 +1,4 @@
-This tiny module for [SageMath](http://www.sagemath.org) contains helper functions to generate a bootstrap problem to be solved by [SDPB](https://github.com/davidsd/sdpb), written originally for Ph.D. thesis of the author (who was almost driven mad by a buggy proprietary software). Almost the same functionality is offered by [PyCFTBoot](https://github.com/cbehan/pycftboot), but the implementation detail and notation is somewhat different. This makes extensive use of "rings.RealNumber" and "rings.RealDensePolynomials" classes contained in Sage, to handle arbitrary precision number/polynomials.
+This tiny module for [SageMath](http://www.sagemath.org) contains helper functions to generate a bootstrap problem to be solved by [SDPB](https://github.com/davidsd/sdpb), written originally for Ph.D. thesis of the author. Almost the same functionality is offered by [PyCFTBoot](https://github.com/cbehan/pycftboot), but the implementation detail and notation is somewhat different. This makes extensive use of "rings.RealNumber" and "rings.RealDensePolynomials" classes contained in Sage, to handle arbitrary precision number/polynomials.
 
 ###Install
 
@@ -20,9 +20,5 @@ In my environment, for example, this is '/Users/tomoki/sources/sage-6.8/src'.
 
 
 ###Examples 
-Examples are provided in ipython notebooks. These include
-1. The 3d Ising model (single correlator)
-2. The 3d XY model (single correlator)
-3. The 3d Ising model (mixed correlator)
+The example scripts are contained in `examples` folder. See `tutorial.pdf`.
 
-Supersymmetric examples are under construction.
