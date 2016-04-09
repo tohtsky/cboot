@@ -168,6 +168,9 @@ cdef class cb_universal_context:
         return self.make_F_minus_matrix(d)
 
     def make_F_minus_matrix(self,d):
+        return self.F_minus_matrix(d) 
+
+    def F_minus_matrix(self,d):
         """
         compute a numpy matrix corresponding to
         v^d multiplication followed by x<-> -x anti-symmetrization.
@@ -181,9 +184,12 @@ cdef class cb_universal_context:
             ,[x for x in self.index_list if x[1]%2]))
 
     def v_to_d_and_symmetrizing_matrix(self,d):
-        return self.make_F_plus_matrix(d)
+        return self.F_plus_matrix(d)
 
     def make_F_plus_matrix(self,d): 
+        return self.F_plus_matrix(d) 
+
+    def F_plus_matrix(self,d): 
         """
         compute a numpy matrix corresponding to
         v^d multiplication followed by x<-> -x symmetrization.
@@ -981,6 +987,9 @@ cdef class prefactor_numerator(positive_matrix_with_prefactor):
         new_mat=-self.matrix
         return prefactor_numerator(self.prefactor,new_mat,self.context) 
 
+    def __div__(self,x):
+        new_mat=self.matrix/x
+        return prefactor_numerator(self.prefactor,new_mat,self.context) 
 
     def __add__(self,other):
         if not isinstance(other,prefactor_numerator):
