@@ -117,14 +117,13 @@ def bs(delta,upper=3,lower=1,sector="0+",sdp_method=make_SDP):
         prob.write("3d_sc_binary.xml")
         sdpbargs=[sdpb,"-s","3d_sc_binary.xml"]+sdpbparams
         out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
-        print out
         sol=re.compile(r'found ([^ ]+) feasible').search(out).groups()[0] 
         if sol=="dual":
             print("(Delta_phi, Delta_{1})={0} is excluded."\
             .format((float(delta),float(D_try)),sector)) 
             upper=D_try
         elif sol=="primal":
-            print("(Delta_phi, Delta_{1})={0} is permitted."\
+            print("(Delta_phi, Delta_{1})={0} is not excluded."\
             .format((float(delta),float(D_try)),sector)) 
             lower=D_try
         else:

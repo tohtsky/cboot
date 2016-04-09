@@ -49,7 +49,7 @@ def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
             .format((float(delta),float(D_try)))) 
             upper=D_try
         elif sol=="primal":
-            print("(Delta_phi, Delta_epsilon)={0} is permitted."\
+            print("(Delta_phi, Delta_epsilon)={0} is not excluded."\
             .format((float(delta),float(D_try)))) 
             lower=D_try
         else:
@@ -84,8 +84,8 @@ def make_SDP_epsilon_prime(delta,gap_dict):
 
 if __name__=='__main__':
     # The default example
-    #delta=0.518
-    #print(bs(delta))
+    delta=0.518
+    print(bs(delta))
 
     # ===============================================
     # if you want to derive the central charge lower bound,
@@ -96,5 +96,5 @@ if __name__=='__main__':
 
     # ===============================================
     # The upper bound on epsilon' dimension.
-    Delta_epsilon=0.8
-    print(bs(Delta_epsilon,sdp_method=make_SDP_epsilon_prime))
+    #Delta_epsilon=0.8
+    #print(bs(Delta_epsilon,sdp_method=make_SDP_epsilon_prime))

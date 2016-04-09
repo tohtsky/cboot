@@ -71,7 +71,7 @@ def bs(delta,upper=3,lower=1,sector="S",sdp_method=make_SDP,NSO=2):
             .format((float(delta),float(D_try)),sector)) 
             upper=D_try
         elif sol=="primal":
-            print("(Delta_phi, Delta_{1})={0} is permitted."\
+            print("(Delta_phi, Delta_{1})={0} is not excluded."\
             .format((float(delta),float(D_try)),sector)) 
             lower=D_try
         else:

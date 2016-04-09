@@ -26,8 +26,8 @@ def prepare_g_es(spin,Delta_se,Delta=None):
 
 def prepare_g(spin,Delta_se,Delta=None):
     if Delta==None:
-        return (prepare_g_0(spin),\
-                prepare_g_se(spin,Delta_se),\
+        return (prepare_g_0(spin),
+                prepare_g_se(spin,Delta_se),
                 prepare_g_es(spin,Delta_se))
     else: 
         g_0=context.gBlock(spin,Delta,0,0)
@@ -67,9 +67,9 @@ def make_F(deltas,sector,spin,gap_dict,Delta=None):
                   [0,F_e_e]],
                   [[0,0],
                    [0,0]],
-                  [[0,F_s_e/2],\
-                   [F_s_e/2,0]],\
-                  [[0,H_s_e/2],\
+                  [[0,F_s_e/2],
+                   [F_s_e/2,0]],
+                  [[0,H_s_e/2],
                    [H_s_e/2,0]]]
 
     elif sector=="odd+":
@@ -101,7 +101,7 @@ def make_SDP(deltas):
     sigma_contribution=make_F(deltas,"odd+",0,{},Delta=deltas[0])
     for m,x in zip(epsilon_contribution,sigma_contribution):
         m[0][0]+=x
-    pvms.append(epsilon_contribution)
+    pvms.append(epsilon_contribution) 
     norm=[]
     for v in make_F(deltas,"even",0,{},Delta=0):
        norm.append(v[0][0]+v[0][1]+v[1][0]+v[1][1])
@@ -113,17 +113,17 @@ def check(*deltas):
     prob.write("3d_mixed.xml")
     sdpbargs=[sdpb,"-s","3d_mixed.xml"]+sdpbparams
     out, err=Popen(sdpbargs,stdout=PIPE,stderr=PIPE).communicate()
-    sol=re.compile(r'found ([^ ]+) feasible').search(out).groups()[0] 
+    sol=re.compile(r'found ([^ ]+) feasible').search(out).groups()[0]
     if sol=="dual":
         print("(Delta_sigma, Delta_epsilon)={0} is excluded."\
             .format(deltas)) 
     elif sol=="primal":
         print("(Delta_sigma, Delta_epsilon)={0} is not excluded."\
-            .format(deltas)) 
+            .format(deltas))
     else:
         raise RuntimeError
 
 if __name__=="__main__":
     for delta_s in [0.518+0.002*x for x in range(-1,2)]:
         for delta_e in [1.41+0.02*y for y in range(-1,2)]:
-            check(delta_s,delta_e) 
+            check(delta_s,delta_e)
