@@ -1,2 +1,2 @@
-#from sage.cboot.scalar_context import *
-#from sage.cboot.context_object import *
+# Not an empty file
+#from .scalar_context import *

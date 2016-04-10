@@ -9,7 +9,7 @@ for spin in range(0,lmax,2):
     cbs.update({spin:g}) 
 
 def make_F(delta,spin,gap_dict):
-    mat_F=context.make_F_minus_matrix(delta)
+    mat_F=context.F_minus_matrix(delta)
     try:
         gap=context(gap_dict[spin])
     except KeyError:
