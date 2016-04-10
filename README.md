@@ -22,3 +22,5 @@ In my environment, for example, this is '/Users/tomoki/sources/sage-6.8/src'.
 ###Examples 
 The example scripts are contained in `examples` folder. See `tutorial.pdf`.
 
+###Acknowledgement 
+I thank Yu Nakayama for collaboration, tests, and complaints.
