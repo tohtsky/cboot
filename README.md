@@ -1,4 +1,4 @@
-This tiny module for [SageMath](http://www.sagemath.org) contains helper functions to generate a bootstrap problem to be solved by [SDPB](https://github.com/davidsd/sdpb), written originally for Ph.D. thesis of the author. Almost the same functionality is offered by [PyCFTBoot](https://github.com/cbehan/pycftboot), but the implementation detail and notation is somewhat different. This makes extensive use of "rings.RealNumber" and "rings.RealDensePolynomials" classes contained in Sage, to handle arbitrary precision number/polynomials.
+This tiny module for [SageMath](http://www.sagemath.org) contains helper functions to generate a bootstrap problem to be solved by [SDPB](https://github.com/davidsd/sdpb), written originally for Ph.D. thesis of the author. Almost the same functionality is offered by [PyCFTBoot](https://github.com/cbehan/pycftboot), but the implementation detail and notation are somewhat different. This makes extensive use of `sage.rings.real_mpfr.RealNumber` and "rings.RealDensePolynomials" classes contained in Sage, to handle arbitrary precision number/polynomials.
 
 ###Install
 

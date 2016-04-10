@@ -70,12 +70,12 @@ def make_F(delta,sector,spin,gap_dict,Delta=None):
         Delta=context(Delta)
         gs=cSCblock(0,spin,Delta=Delta) 
 
-    F=context.dot(context.make_F_minus_matrix(delta),gs[0])
-    H=context.dot(context.make_F_plus_matrix(delta),gs[0])
-    Ftilde=context.dot(context.make_F_minus_matrix(delta),gs[1])
-    Htilde=context.dot(context.make_F_plus_matrix(delta),gs[1])
-    Fbos=context.dot(context.make_F_minus_matrix(delta),gs[2])
-    Hbos=context.dot(context.make_F_plus_matrix(delta),gs[2])
+    F=context.dot(context.F_minus_matrix(delta),gs[0])
+    H=context.dot(context.F_plus_matrix(delta),gs[0])
+    Ftilde=context.dot(context.F_minus_matrix(delta),gs[1])
+    Htilde=context.dot(context.F_plus_matrix(delta),gs[1])
+    Fbos=context.dot(context.F_minus_matrix(delta),gs[2])
+    Hbos=context.dot(context.F_plus_matrix(delta),gs[2])
 
     if sector=="0+":
         return [F,Ftilde,Htilde]

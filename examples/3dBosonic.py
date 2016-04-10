@@ -24,7 +24,7 @@ def make_F(delta,spin,gap_dict):
 def make_SDP(delta,gap_dict): 
     delta=context(delta)
     Fs=[make_F(delta,spin,gap_dict) for spin in cbs.keys()]
-    mat_F=context.make_F_minus_matrix(delta)
+    mat_F=context.F_minus_matrix(delta)
     norm=context.dot(mat_F,context.gBlock(0,0,0,0))
     obj=norm*0
     return context.SDP(norm,obj,Fs) 
@@ -59,7 +59,7 @@ def bs(delta,upper=3,lower=1,sdp_method=make_SDP):
 def make_SDP_for_cc(delta,gap_dict={0:1}):
     delta=context(delta)
     Fs=[make_F(delta,spin,gap_dict) for spin in cbs.keys()]
-    mat_F=context.make_F_minus_matrix(delta)
+    mat_F=context.F_minus_matrix(delta)
     norm=context.dot(mat_F,context.gBlock(2,3,0,0))
     obj=context.dot(mat_F,context.gBlock(0,0,0,0))
     return context.SDP(norm,obj,Fs)
@@ -76,7 +76,7 @@ def cc(delta):
 def make_SDP_epsilon_prime(delta,gap_dict): 
     delta=context(delta)
     Fs=[make_F(delta,spin,gap_dict) for spin in cbs.keys()]
-    mat_F=context.make_F_minus_matrix(delta)
+    mat_F=context.F_minus_matrix(delta)
     Fs+=[context.dot(mat_F,context.gBlock(0,delta,0,0))]
     norm=context.dot(mat_F,context.gBlock(0,0,0,0))
     obj=norm*0

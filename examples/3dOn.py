@@ -24,8 +24,8 @@ def make_F(delta,sector,spin,gap_dict,NSO):
 
     g_num=g_shift.matrix
     g_pref=g_shift.prefactor
-    F=context.make_F_minus_matrix(delta).dot(g_num)
-    H=context.make_F_plus_matrix(delta).dot(g_num) 
+    F=context.F_minus_matrix(delta).dot(g_num)
+    H=context.F_plus_matrix(delta).dot(g_num) 
 
     if sector=="S":
         num=np.concatenate((context.null_ftype,F,H))
@@ -49,8 +49,8 @@ def make_SDP(delta,gap_dict,NSO=2):
         for spin in spins:
             pvms.append(make_F(delta,sector,spin,gap_dict,NSO))
 
-    norm_F=context.make_F_minus_matrix(delta).dot(context.gBlock(0,0,0,0))
-    norm_H=context.make_F_plus_matrix(delta).dot(context.gBlock(0,0,0,0))
+    norm_F=context.F_minus_matrix(delta).dot(context.gBlock(0,0,0,0))
+    norm_H=context.F_plus_matrix(delta).dot(context.gBlock(0,0,0,0))
     norm=np.concatenate((context.null_ftype,norm_F,norm_H))
 
     obj=norm*0

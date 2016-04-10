@@ -25,8 +25,8 @@ def make_F(delta,sector,spin,gap_dict,NSO,Delta=None):
     else:
         Delta=context(Delta)
         g=context.gBlock(spin,Delta,0,0)
-    F=context.dot(context.make_F_minus_matrix(delta),g)
-    H=context.dot(context.make_F_plus_matrix(delta),g) 
+    F=context.dot(context.F_minus_matrix(delta),g)
+    H=context.dot(context.F_plus_matrix(delta),g) 
 
     if sector=="S":
         return [0,F,H]
